@@ -3,6 +3,7 @@ package com.ob.ohlc_cache.model;
 
 import com.ob.ohlc_cache.model.type.MarketType;
 import com.ob.ohlc_cache.model.type.Period;
+import com.ob.ohlc_cache.util.CandleUtil;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
