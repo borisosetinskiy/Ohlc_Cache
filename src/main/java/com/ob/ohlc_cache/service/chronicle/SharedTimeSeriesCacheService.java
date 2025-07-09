@@ -55,6 +55,24 @@ public class SharedTimeSeriesCacheService {
         return marketType.name() + ":" + period.name();
     }
 
+    /**
+     * Получает кэш для указанного типа рынка и периода.
+     * @param marketType тип рынка
+     * @param period период
+     * @return кэш или null если не найден
+     */
+    public CandleTimeSeriesCache getCache(MarketType marketType, Period period) {
+        return caches.get(key(marketType, period));
+    }
+
+    /**
+     * Получает все кэши.
+     * @return Map всех кэшей
+     */
+    public Map<String, CandleTimeSeriesCache> getAllCaches() {
+        return new ConcurrentHashMap<>(caches);
+    }
+
     @PreDestroy
     public void close() {
         caches.values().forEach(chunkCache -> {

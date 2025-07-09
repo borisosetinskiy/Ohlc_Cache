@@ -239,6 +239,61 @@ public class ChronicleIndexApi implements IndexApi {
         return result;
     }
 
+    @Override
+    public void remove(String seriesId, Long chunkTimestamp, long indexTimestampSec) {
+        long indexGroupTs = getPureTimestamp(chunkTimestamp, indexTimestampSec);
+        
+        final IndexKey indexKey = Values.newHeapInstance(IndexKey.class);
+        indexKey.setSeriesId(seriesId);
+        indexKey.setIndexGroupTimestamp(indexGroupTs);
+        
+        try (ExternalMapQueryContext<IndexKey, IndexValue, ?> context = seriesIndex.queryContext(indexKey)) {
+            Lock lock = context.updateLock();
+            boolean isLocked = false;
+            try {
+                isLocked = lock.tryLock(200, TimeUnit.MILLISECONDS);
+                if (isLocked) {
+                    final MapEntry<IndexKey, IndexValue> entry = context.entry();
+                    if (entry != null) {
+                        IndexValue usingValue = value();
+                        entry.value().getUsing(usingValue);
+                        
+                        // Удаляем временную метку из индекса
+                        if (usingValue.remove(chunkTimestamp)) {
+                            if (usingValue.getCount() == 0) {
+                                // Если индекс пустой, удаляем всю запись
+                                entry.doRemove();
+                                log.info("Removed empty index for seriesId={}, groupTimestamp={}", 
+                                        seriesId, indexGroupTs);
+                            } else {
+                                // Обновляем индекс без удаленной временной метки
+                                entry.doReplaceValue(context.wrapValueAsData(usingValue));
+                                log.info("Removed timestamp {} from index for seriesId={}, groupTimestamp={}", 
+                                        chunkTimestamp, seriesId, indexGroupTs);
+                            }
+                        } else {
+                            log.warn("Timestamp {} not found in index for seriesId={}, groupTimestamp={}", 
+                                    chunkTimestamp, seriesId, indexGroupTs);
+                        }
+                    } else {
+                        log.warn("Index not found for seriesId={}, groupTimestamp={}", seriesId, indexGroupTs);
+                    }
+                } else {
+                    log.warn("Could not acquire lock for removal of seriesId={}, chunkTimestamp={}", 
+                            seriesId, chunkTimestamp);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Thread was interrupted while removing from index", e);
+                throw new RuntimeException("Operation was cancelled", e);
+            } finally {
+                if (isLocked) {
+                    lock.unlock();
+                }
+            }
+        }
+    }
+
     private long getPureTimestamp(long ts, long dur) {
         return ts - (ts % dur);
     }
