@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: Ohlc_Cache
+cache:
+  diable: false
+  chronicle:
+    time-series:
+      base-path: "data/timeseries-chronicle"
+  index:
+    name: chronicle
+    time-series:
+      queue-size: 131072
+      base-path:  "data/timeseries-index"
