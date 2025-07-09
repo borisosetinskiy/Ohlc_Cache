@@ -385,7 +385,7 @@ public class OhlcDataService {
             // Вставка новой свечи
             candleTimeSeriesCache.insert(
                 symbol,
-                Period.M5.getTimePeriod(),
+                Period.M5.getDurationId(),
                 data.getTimestamp(),
                 data.getOpen(),
                 data.getHigh(),
@@ -407,7 +407,7 @@ public class OhlcDataService {
             result,
             symbol,
             MarketType.STOCK,
-            Period.M5.getTimePeriod(),
+            Period.M5.getDurationId(),
             startTime,
             0,
             maxCount,
@@ -439,7 +439,7 @@ public void batchProcessData(String symbol, List<MarketData> dataList) {
     // Пакетная вставка
     candleTimeSeriesCache.batchInsert(
         symbol,
-        Period.M5.getTimePeriod(),
+        Period.M5.getDurationId(),
         candles,
         0,
         candles.length

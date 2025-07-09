@@ -148,6 +148,24 @@ public interface Candle {
 - **Макс. чанков**: максимальное количество чанков в кэше для данного периода
 - **Индекс (сек)**: количество секунд, которое помещается в индекс (TimeUnit.DAYS.toSeconds(N))
 
+**Соответствие периодов и durationId:**
+| Период | durationId | Описание |
+|--------|------------|----------|
+| M1     | 1          | 1 минута |
+| M5     | 2          | 5 минут  |
+| M10    | 12         | 10 минут |
+| M15    | 3          | 15 минут |
+| M30    | 6          | 30 минут |
+| H1     | 4          | 1 час    |
+| H2     | 7          | 2 часа   |
+| H3     | 13         | 3 часа   |
+| H4     | 8          | 4 часа   |
+| H8     | 11         | 8 часов  |
+| D1     | 5          | 1 день   |
+| D7     | 9          | 7 дней   |
+| Mo1    | 10         | 1 месяц  |
+| y1     | 14         | 1 год    |
+
 ## 🔧 API
 
 ### Вставка данных
@@ -156,7 +174,7 @@ public interface Candle {
 ```java
 candleTimeSeriesCache.insert(
     "AAPL",           // Символ
-    300000L,          // Длительность периода (5 минут)
+    2,                // Period.durationId (M5 = 2)
     1640995200000L,   // Временная метка
     150.0,            // Open
     152.0,            // High
@@ -171,7 +189,7 @@ candleTimeSeriesCache.insert(
 ```java
 Candle[] candles = new Candle[100];
 // ... заполнение массива свечей
-candleTimeSeriesCache.batchInsert("AAPL", 300000L, candles, 0, 100);
+candleTimeSeriesCache.batchInsert("AAPL", 2, candles, 0, 100);  // Period.durationId (M5 = 2)
 ```
 
 ### Чтение данных
@@ -183,7 +201,7 @@ int count = candleTimeSeriesCache.batchRead(
     result,                    // Массив для результатов
     "AAPL",                    // Символ
     MarketType.STOCK,          // Тип рынка
-    300000L,                   // Длительность периода
+    2,                         // Period.durationId (M5 = 2)
     1640995200000L,            // Начальная временная метка
     0,                         // Смещение в массиве результатов
     1000,                      // Количество свечей
@@ -236,7 +254,7 @@ cache:
 ```java
 boolean deleted = candleTimeSeriesCache.deleteChunk(
     "AAPL",           // Символ
-    300000L,          // Длительность периода
+    2,                // Period.durationId (M5 = 2)
     1640995200000L    // Временная метка начала чанка
 );
 ```
@@ -267,7 +285,7 @@ POST /api/cache/cleanup/manual?retentionPeriodMs=604800000
 
 #### Удаление конкретного чанка:
 ```bash
-DELETE /api/cache/chunks/AAPL?duration=300000&chunkStartTimestamp=1640995200000
+DELETE /api/cache/chunks/AAPL?duration=2&chunkStartTimestamp=1640995200000
 ```
 
 #### Обновление периода хранения:
