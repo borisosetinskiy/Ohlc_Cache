@@ -8,6 +8,8 @@ import com.ob.ohlc_cache.model.type.Direction;
 import com.ob.ohlc_cache.model.type.MarketType;
 import com.ob.ohlc_cache.model.type.Period;
 import com.ob.ohlc_cache.model.type.SearchMode;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.openhft.chronicle.map.ChronicleMap;
@@ -378,5 +380,129 @@ public class CandleTimeSeriesCache implements AutoCloseable {
                 , chunksToFetch, direction, period.getIndexTimestamp());
     }
 
+    /**
+     * Удаляет конкретный чанк по символу и временной метке.
+     * @param symbol символ финансового инструмента
+     * @param duration длительность периода в миллисекундах
+     * @param chunkStartTimestamp временная метка начала чанка
+     * @return true если чанк был найден и удален, false если чанк не найден
+     */
+    public boolean deleteChunk(String symbol, long duration, long chunkStartTimestamp) {
+        ChunkKey key = ChunkKey.of(symbol, duration, chunkStartTimestamp);
+        String seriesId = getSeriesId(symbol, duration);
+        
+        try (ExternalMapQueryContext<ChunkKey, CandleChunkValue, ?> context = chunkCache.queryContext(key)) {
+            Lock lock = context.updateLock();
+            boolean isLocked = false;
+            try {
+                isLocked = lock.tryLock(200, TimeUnit.MILLISECONDS);
+                if (isLocked) {
+                    final MapEntry<ChunkKey, CandleChunkValue> entry = context.entry();
+                    if (entry != null) {
+                        // Удаляем чанк из кэша
+                        entry.doRemove();
+                        
+                        // Удаляем из индекса
+                        indexApi.remove(seriesId, chunkStartTimestamp, period.getIndexTimestamp());
+                        
+                        log.info("Successfully deleted chunk for symbol: {}, duration: {}, chunkStartTimestamp: {}", 
+                                symbol, duration, chunkStartTimestamp);
+                        return true;
+                    } else {
+                        log.warn("Chunk not found for deletion: symbol: {}, duration: {}, chunkStartTimestamp: {}", 
+                                symbol, duration, chunkStartTimestamp);
+                        return false;
+                    }
+                } else {
+                    log.warn("Could not acquire lock for chunk deletion: symbol: {}, duration: {}, chunkStartTimestamp: {}", 
+                            symbol, duration, chunkStartTimestamp);
+                    return false;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Thread was interrupted while deleting chunk", e);
+                throw new RuntimeException("Operation was cancelled", e);
+            } finally {
+                if (isLocked) {
+                    lock.unlock();
+                }
+            }
+        }
+    }
 
+    /**
+     * Очищает устаревшие чанки на основе TTL.
+     * @param retentionPeriodMs период хранения в миллисекундах
+     * @return количество удаленных чанков
+     */
+    public int cleanupExpiredChunks(long retentionPeriodMs) {
+        if (retentionPeriodMs <= 0) {
+            log.warn("Invalid retention period: {}", retentionPeriodMs);
+            return 0;
+        }
+
+        int deletedCount = 0;
+        long currentTime = System.currentTimeMillis();
+        
+        // Проходим по всем чанкам в кэше
+        for (Map.Entry<ChunkKey, CandleChunkValue> entry : chunkCache.entrySet()) {
+            ChunkKey key = entry.getKey();
+            CandleChunkValue chunkValue = entry.getValue();
+            
+            // Проверяем, истек ли TTL для чанка
+            if (chunkValue.isExpired(retentionPeriodMs)) {
+                try {
+                    // Удаляем чанк
+                    if (deleteChunk(key.getSymbol(), key.getDuration(), key.getChunkStartTimestamp())) {
+                        deletedCount++;
+                    }
+                } catch (Exception e) {
+                    log.error("Error deleting expired chunk: symbol: {}, duration: {}, chunkStartTimestamp: {}", 
+                            key.getSymbol(), key.getDuration(), key.getChunkStartTimestamp(), e);
+                }
+            }
+        }
+        
+        log.info("Cleanup completed: deleted {} expired chunks with retention period {} ms", 
+                deletedCount, retentionPeriodMs);
+        return deletedCount;
+    }
+
+    /**
+     * Получает статистику по чанкам для мониторинга.
+     * @return статистика кэша
+     */
+    public CacheStatistics getStatistics() {
+        int totalChunks = chunkCache.size();
+        long currentTime = System.currentTimeMillis();
+        int expiredChunks = 0;
+        long totalCandles = 0;
+        
+        for (CandleChunkValue chunkValue : chunkCache.values()) {
+            if (chunkValue.isExpired(7 * 24 * 60 * 60 * 1000L)) { // 7 дней по умолчанию
+                expiredChunks++;
+            }
+            totalCandles += chunkValue.getCount();
+        }
+        
+        return new CacheStatistics(totalChunks, expiredChunks, totalCandles, currentTime);
+    }
+
+    /**
+     * Статистика кэша для мониторинга.
+     */
+    @Data
+    @AllArgsConstructor
+    public static class CacheStatistics {
+        private final int totalChunks;
+        private final int expiredChunks;
+        private final long totalCandles;
+        private final long timestamp;
+
+        @Override
+        public String toString() {
+            return String.format("CacheStatistics{totalChunks=%d, expiredChunks=%d, totalCandles=%d, timestamp=%d}", 
+                    totalChunks, expiredChunks, totalCandles, timestamp);
+        }
+    }
 }

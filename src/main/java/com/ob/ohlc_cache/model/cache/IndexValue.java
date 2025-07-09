@@ -87,6 +87,39 @@ public class IndexValue implements BytesMarshallable, AutoCloseable {
         return -(low + 1);
     }
 
+    /**
+     * Удаляет временную метку из индекса.
+     * @param timestamp временная метка для удаления
+     * @return true если временная метка была найдена и удалена, false если не найдена
+     */
+    public boolean remove(long timestamp) {
+        if (page == null) {
+            return false;
+        }
+
+        int index = binarySearch(timestamp);
+        if (index < 0) {
+            return false; // Временная метка не найдена
+        }
+
+        int count = getCount();
+        if (count == 0) {
+            return false;
+        }
+
+        // Сдвигаем элементы влево, начиная с позиции после удаляемого элемента
+        long removeOffset = HEADER_SIZE + (long) index * SIZE;
+        if (index < count - 1) {
+            page.move(removeOffset + SIZE, removeOffset, (long) (count - index - 1) * SIZE);
+        }
+
+        // Уменьшаем счетчик
+        page.writeInt(COUNT_OFFSET, count - 1);
+        
+        log.info("Removed timestamp {} from index at position {}", timestamp, index);
+        return true;
+    }
+
     @Override
     public void writeMarshallable(BytesOut<?> out) {
         if (page == null) {

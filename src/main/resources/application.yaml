@@ -11,3 +11,7 @@ cache:
     time-series:
       queue-size: 131072
       base-path:  "data/timeseries-index"
+  cleanup:
+    enabled: true
+    retention-period-ms: 604800000  # 7 дней в миллисекундах
+    schedule-interval-ms: 3600000   # 1 час в миллисекундах

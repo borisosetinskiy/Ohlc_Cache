@@ -11,4 +11,12 @@ public interface IndexApi extends AutoCloseable{
             , int count
             , Direction direction
             , long chunkDurationSec);
+    
+    /**
+     * Удаляет временную метку чанка из индекса.
+     * @param seriesId идентификатор серии
+     * @param chunkTimestamp временная метка чанка для удаления
+     * @param indexTimestampSec интервал группировки индекса
+     */
+    void remove(String seriesId, Long chunkTimestamp, long indexTimestampSec);
 }

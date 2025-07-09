@@ -9,13 +9,15 @@ import net.openhft.chronicle.bytes.BytesOut;
 
 @Slf4j
 public class CandleChunkValue implements BytesMarshallable, AutoCloseable {
-    private static final int HEADER_SIZE = 24;
+    private static final int HEADER_SIZE = 40; // Увеличили размер header для технических метаданных
     private static final int CANDLE_SIZE = Candle.CANDLE_STRUCT_SIZE; // 52
 
     private static final int CAPACITY_OFFSET = 0;
     private static final int COUNT_OFFSET = 4;
     private static final int FIRST_TS_OFFSET = 8;
     private static final int LAST_TS_OFFSET = 16;
+    private static final int CREATED_TS_OFFSET = 24; // Время создания чанка
+    private static final int LAST_ACCESS_TS_OFFSET = 32; // Время последнего доступа
 
     private transient Bytes<?> page;
 
@@ -27,6 +29,11 @@ public class CandleChunkValue implements BytesMarshallable, AutoCloseable {
             page.writeInt(COUNT_OFFSET, 0);
             page.writeLong(FIRST_TS_OFFSET, Long.MAX_VALUE);
             page.writeLong(LAST_TS_OFFSET, 0L);
+            
+            // Инициализация технических метаданных
+            long currentTime = System.currentTimeMillis();
+            page.writeLong(CREATED_TS_OFFSET, currentTime);
+            page.writeLong(LAST_ACCESS_TS_OFFSET, currentTime);
         }
     }
 
@@ -65,6 +72,38 @@ public class CandleChunkValue implements BytesMarshallable, AutoCloseable {
         if (page != null) page.writeLong(LAST_TS_OFFSET, ts);
     }
 
+    /**
+     * Возвращает время создания чанка в миллисекундах.
+     */
+    public long getCreatedTimestamp() {
+        return (page != null) ? page.readLong(CREATED_TS_OFFSET) : 0;
+    }
+
+    /**
+     * Возвращает время последнего доступа к чанку в миллисекундах.
+     */
+    public long getLastAccessTimestamp() {
+        return (page != null) ? page.readLong(LAST_ACCESS_TS_OFFSET) : 0;
+    }
+
+    /**
+     * Обновляет время последнего доступа к чанку.
+     */
+    public void updateLastAccess() {
+        if (page != null) {
+            page.writeLong(LAST_ACCESS_TS_OFFSET, System.currentTimeMillis());
+        }
+    }
+
+    /**
+     * Проверяет, истек ли TTL для чанка.
+     */
+    public boolean isExpired(long retentionPeriodMs) {
+        if (page == null) return true;
+        long createdTime = getCreatedTimestamp();
+        return (System.currentTimeMillis() - createdTime) > retentionPeriodMs;
+    }
+
     public boolean insert(long time, double o, double h, double l, double c, double vol, int tick) {
         if (page == null) {
             log.error("Page is not initialized, cannot insert candle.");
@@ -99,6 +138,9 @@ public class CandleChunkValue implements BytesMarshallable, AutoCloseable {
         if (time < getFirstCandleTimestamp()) setFirstCandleTimestamp(time);
         if (time > getLastCandleTimestamp()) setLastCandleTimestamp(time);
 
+        // Обновляем время последнего доступа
+        updateLastAccess();
+
         return true;
     }
 
@@ -108,6 +150,9 @@ public class CandleChunkValue implements BytesMarshallable, AutoCloseable {
         }
         long offset = HEADER_SIZE + (long) index * CANDLE_SIZE;
         flyweight.bytesStore(page, offset, CANDLE_SIZE);
+        
+        // Обновляем время последнего доступа при чтении
+        updateLastAccess();
     }
 
     public int binarySearch(long timestamp) {
@@ -166,11 +211,13 @@ public class CandleChunkValue implements BytesMarshallable, AutoCloseable {
     @Override
     public String toString() {
         if (page == null) return "{uninitialized}";
-        return String.format("{count=%d, capacity=%d, timeRange=[%d...%d]}",
+        return String.format("{count=%d, capacity=%d, timeRange=[%d...%d], created=%d, lastAccess=%d}",
                 getCount(),
                 getCapacityInCandles(),
                 getFirstCandleTimestamp(),
-                getLastCandleTimestamp());
+                getLastCandleTimestamp(),
+                getCreatedTimestamp(),
+                getLastAccessTimestamp());
     }
 
     public void close() {
