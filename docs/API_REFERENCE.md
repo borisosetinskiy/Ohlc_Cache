@@ -34,16 +34,17 @@ void insert(String symbol, long duration, long timestamp,
 
 **Пример использования:**
 ```java
-candleTimeSeriesCache.insert(
-    "AAPL",           // Символ Apple
-    300000L,          // 5-минутный период
-    1640995200000L,   // Временная метка
-    150.0,            // Open
-    152.0,            // High
-    149.0,            // Low
-    151.0,            // Close
-    1000000.0,        // Volume
-    1                 // Tick
+sharedTimeSeriesCacheService.insert(
+    "AAPL",                    // Символ Apple
+    MarketType.STOCK,          // Тип рынка
+    Period.M5,                 // 5-минутный период
+    1640995200000L,            // Временная метка
+    150.0,                     // Open
+    152.0,                     // High
+    149.0,                     // Low
+    151.0,                     // Close
+    1000000.0,                 // Volume
+    1                          // Tick
 );
 ```
 
@@ -66,7 +67,7 @@ void batchInsert(String symbol, long duration, Candle[] candles,
 ```java
 Candle[] candles = new Candle[100];
 // Заполнение массива свечей...
-candleTimeSeriesCache.batchInsert("AAPL", 300000L, candles, 0, 100);
+sharedTimeSeriesCacheService.insertAll("AAPL", MarketType.STOCK, Period.M5, candles, 0, 100);
 ```
 
 #### Методы чтения данных
@@ -96,11 +97,12 @@ int batchRead(Candle[] destination, String symbol, MarketType marketType,
 **Пример использования:**
 ```java
 Candle[] result = new Candle[1000];
-int count = candleTimeSeriesCache.batchRead(
+CandleTimeSeriesCache cache = sharedTimeSeriesCacheService.getCache(MarketType.STOCK, Period.M5);
+int count = cache.batchRead(
     result,                    // Массив результатов
     "AAPL",                    // Символ
     MarketType.STOCK,          // Тип рынка
-    300000L,                   // 5-минутный период
+    Period.M5.getDurationId(), // 5-минутный период
     1640995200000L,            // Начальная временная метка
     0,                         // Смещение
     1000,                      // Количество свечей

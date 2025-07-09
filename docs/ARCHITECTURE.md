@@ -65,12 +65,14 @@ public interface Candle extends Byteable, BytesMarshallable {
 
 **Структура чанка:**
 ```
-[Header: 24 bytes] + [Candles: N * 52 bytes]
+[Header: 40 bytes] + [Candles: N * 52 bytes]
 Header:
 - Capacity (4 bytes): количество свечей в чанке
 - Count (4 bytes): текущее количество свечей
 - FirstTimestamp (8 bytes): время первой свечи
 - LastTimestamp (8 bytes): время последней свечи
+- CreatedTimestamp (8 bytes): время создания чанка
+- LastAccessTimestamp (8 bytes): время последнего доступа
 ```
 
 #### ChronicleIndexApi
@@ -99,17 +101,34 @@ IndexValue:
 
 ```java
 public enum Period {
-    M1("1 minute", 60_000L, 1, 1, TimeUnit.DAYS, 3, 10000, ...),
-    M5("5 minutes", 60_000L * 5, 5, 2, TimeUnit.DAYS, 15, 10000, ...),
-    // ...
+    M1("1 minute", 60_000L, 1, 1, TimeUnit.DAYS, 3, 10000, TimeUnit.DAYS.toSeconds(5000), 10, 4320),
+    M5("5 minutes", 300_000L, 5, 2, TimeUnit.DAYS, 15, 10000, TimeUnit.DAYS.toSeconds(10000), 5, 4320),
+    M10("10 minutes", 600_000L, 10, 12, TimeUnit.DAYS, 30, 10000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    M15("15 minutes", 900_000L, 15, 3, TimeUnit.DAYS, 45, 10000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    M30("30 minutes", 1_800_000L, 30, 6, TimeUnit.DAYS, 90, 10000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    H1("1 hour", 3_600_000L, 60, 4, TimeUnit.DAYS, 180, 10000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    H2("2 hours", 7_200_000L, 120, 7, TimeUnit.DAYS, 360, 10000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    H3("3 hours", 10_800_000L, 180, 13, TimeUnit.DAYS, 540, 10000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    H4("4 hours", 14_400_000L, 240, 8, TimeUnit.DAYS, 1644, 10000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    H8("8 hours", 28_800_000L, 480, 11, TimeUnit.DAYS, 3285, 20000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    D1("1 day", 86_400_000L, 1440, 5, TimeUnit.DAYS, 10950, 20000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    D7("7 days", 604_800_000L, 10080, 9, TimeUnit.DAYS, 10950, 20000, TimeUnit.DAYS.toSeconds(15000), 1, 4320),
+    Mo1("1 month", 2_678_400_000L, 43830, 10, TimeUnit.DAYS, 14640, 5000, TimeUnit.DAYS.toSeconds(15000), 1, 1220),
+    y1("1 year", 31_622_400_000L, 525960, 14, TimeUnit.DAYS, 14640, 2000, TimeUnit.DAYS.toSeconds(15000), 1, 100)
 }
 ```
 
 **Параметры:**
-- `timePeriod`: длительность периода в миллисекундах
-- `perChunk`: количество свечей в чанке
-- `max`: максимальное количество записей
-- `indexTimestamp`: интервал группировки индексов
+- `description`: описание периода
+- `timePeriod`: длительность свечи в миллисекундах
+- `minutes`: длительность свечи в минутах
+- `durationId`: уникальный ID, используемый в кэше как ключ
+- `timeUnit`: TimeUnit в днях (всегда DAYS)
+- `timeUnitCount`: количество дней
+- `max`: максимальное количество чанков в кэше
+- `indexTimestamp`: количество секунд в индексе (TimeUnit.DAYS.toSeconds(N))
+- `criticalDiff`: критическое значение в кэше, если будет разрыв между свечами
+- `perChunk`: сколько свечей помещается в чанке
 
 #### MarketType
 Типы финансовых рынков (STOCK, FOREX, CRYPTO, etc.)

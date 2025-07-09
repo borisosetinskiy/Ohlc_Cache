@@ -13,10 +13,7 @@
 public class OhlcCacheService {
     
     @Autowired
-    private CandleTimeSeriesCache candleTimeSeriesCache;
-    
-    @Autowired
-    private ChronicleIndexApi indexApi;
+    private SharedTimeSeriesCacheService sharedTimeSeriesCacheService;
     
     // Инициализация с настройками
     public void initializeCache() {
@@ -31,9 +28,10 @@ public class OhlcCacheService {
 ```java
 public void insertSingleCandle() {
     try {
-        candleTimeSeriesCache.insert(
+        sharedTimeSeriesCacheService.insert(
             "AAPL",                    // Символ Apple
-            Period.M5.getTimePeriod(), // 5-минутный период
+            MarketType.STOCK,          // Тип рынка
+            Period.M5,                 // 5-минутный период
             System.currentTimeMillis(), // Текущее время
             150.0,                     // Open
             152.0,                     // High
@@ -72,9 +70,10 @@ public void insertBatchCandles() {
     }
     
     // Пакетная вставка
-    candleTimeSeriesCache.batchInsert(
+    sharedTimeSeriesCacheService.insertAll(
         "AAPL",
-        Period.M1.getTimePeriod(),
+        MarketType.STOCK,
+        Period.M1,
         candles,
         0,
         candles.length
@@ -93,11 +92,17 @@ public List<Candle> getHistoricalData(String symbol, long startTime,
                                      long endTime, int maxCount) {
     Candle[] result = new Candle[maxCount];
     
-    int count = candleTimeSeriesCache.batchRead(
+    CandleTimeSeriesCache cache = sharedTimeSeriesCacheService.getCache(MarketType.STOCK, Period.M5);
+    if (cache == null) {
+        log.error("Cache not found for STOCK:M5");
+        return new ArrayList<>();
+    }
+    
+    int count = cache.batchRead(
         result,                    // Массив для результатов
         symbol,                    // Символ
         MarketType.STOCK,          // Тип рынка
-        Period.M5.getTimePeriod(), // 5-минутный период
+        Period.M5.getDurationId(), // 5-минутный период
         startTime,                 // Начальное время
         0,                         // Смещение
         maxCount,                  // Максимальное количество
@@ -127,7 +132,7 @@ public List<Candle> getHistoricalData(String symbol, long startTime,
 public class MarketDataProcessor {
     
     @Autowired
-    private CandleTimeSeriesCache cache;
+    private SharedTimeSeriesCacheService sharedTimeSeriesCacheService;
     
     private final Map<String, Candle> currentCandles = new ConcurrentHashMap<>();
     
@@ -144,9 +149,10 @@ public class MarketDataProcessor {
             getPeriodStart(currentCandle.getTime(), Period.M1) != periodStart) {
             
             // Вставка завершенной свечи
-            cache.insert(
+            sharedTimeSeriesCacheService.insert(
                 symbol,
-                Period.M1.getTimePeriod(),
+                MarketType.STOCK,
+                Period.M1,
                 currentCandle.getTime(),
                 currentCandle.getOpen(),
                 currentCandle.getHigh(),

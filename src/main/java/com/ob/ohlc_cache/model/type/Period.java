@@ -49,7 +49,11 @@ public enum Period {
             , int durationId
             , TimeUnit timeUnit
             , int timeUnitCount
-            , long max, long indexTimestamp, long criticalDiff, int perChunk) {
+            , long max
+            , long indexTimestamp
+            , long criticalDiff
+            , int perChunk) {
+
         this.description = description;
         this.timePeriod = timePeriod;
         this.minutes = minutes;
