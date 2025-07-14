@@ -442,7 +442,6 @@ public class CandleTimeSeriesCache implements AutoCloseable {
         }
 
         int deletedCount = 0;
-        long currentTime = System.currentTimeMillis();
         
         // Проходим по всем чанкам в кэше
         for (Map.Entry<ChunkKey, CandleChunkValue> entry : chunkCache.entrySet()) {

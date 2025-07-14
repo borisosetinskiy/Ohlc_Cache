@@ -4,6 +4,7 @@ import com.ob.ohlc_cache.model.type.MarketType;
 import com.ob.ohlc_cache.model.type.Period;
 import com.ob.ohlc_cache.service.CacheCleanupService;
 import com.ob.ohlc_cache.service.chronicle.CandleTimeSeriesCache;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,14 +19,12 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/api/cache")
+@Data
 public class CacheManagementController {
 
-    @Autowired
-    private CacheCleanupService cacheCleanupService;
+    private final CacheCleanupService cacheCleanupService;
 
-    /**
-     * Получение статистики кэша.
-     */
+
     @GetMapping("/statistics")
     public ResponseEntity<CandleTimeSeriesCache.CacheStatistics> getStatistics() {
         log.info("Getting cache statistics");
@@ -148,27 +147,4 @@ public class CacheManagementController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Получение детальной информации о чанке.
-     */
-    @GetMapping("/chunks/{symbol}")
-    public ResponseEntity<Map<String, Object>> getChunkInfo(
-            @PathVariable String symbol,
-            @RequestParam long duration,
-            @RequestParam long chunkStartTimestamp) {
-        
-        log.info("Getting chunk info: symbol={}, duration={}, chunkStartTimestamp={}", 
-                symbol, duration, chunkStartTimestamp);
-        
-        // Здесь можно добавить логику для получения информации о конкретном чанке
-        // Пока возвращаем базовую информацию
-        
-        Map<String, Object> result = new HashMap<>();
-        result.put("symbol", symbol);
-        result.put("duration", duration);
-        result.put("chunkStartTimestamp", chunkStartTimestamp);
-        result.put("exists", true); // TODO: добавить проверку существования чанка
-        
-        return ResponseEntity.ok(result);
-    }
 } 
