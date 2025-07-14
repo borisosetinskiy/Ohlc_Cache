@@ -146,8 +146,8 @@ public class TimeUtil {
             , Function<ZonedDateTime, Boolean> isTradingTime) {
         Duration stepDuration = Duration.ofSeconds(stepDurationSec);
         int count = 0;
-        ZonedDateTime cursor = lastCandleTime;
-        while (!cursor.isAfter(searchTime)) {
+        ZonedDateTime cursor = lastCandleTime.plus(stepDuration);
+        while (!cursor.isAfter(searchTime) && !cursor.isEqual(searchTime)) {
             if (isTradingTime.apply(cursor)) {
                 count++;
             }
